@@ -1,0 +1,4 @@
+FROM apache/airflow:2.9.3
+
+# instala o kaggle dentro do ambiente do airflow (sem --user)
+RUN pip install --no-cache-dir kaggle
