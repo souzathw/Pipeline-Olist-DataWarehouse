@@ -1,0 +1,88 @@
+# =========================
+# Secrets / Credenciais
+# =========================
+secrets/
+**/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cert
+*.kubeconfig
+
+# env files (cuidado: se você quiser versionar algum .env.example, crie exceção abaixo)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.pickle
+
+.venv/
+venv/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# Airflow
+# =========================
+airflow/logs/
+airflow/plugins/__pycache__/
+airflow/*.db
+airflow/webserver_config.pyc
+
+# (opcional) se você usa local_settings.json ou algo similar no airflow
+airflow/local_settings.py
+
+# =========================
+# dbt
+# =========================
+dbt/**/target/
+dbt/**/dbt_packages/
+dbt/**/logs/
+
+# =========================
+# Spark / Big files
+# =========================
+spark_jars/
+**/*.jar
+**/*.parquet
+**/*.orc
+**/*.avro
+
+# Spark temp / checkpoints
+**/_temporary/
+**/.spark-staging/
+**/spark-warehouse/
+**/metastore_db/
+**/*.crc
+
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

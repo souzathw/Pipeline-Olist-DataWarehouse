@@ -20,24 +20,47 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: ../.env
+      airflow-init:
+        condition: service_completed_successfully
+    env_file: .env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW_UID: "${AIRFLOW_UID:-1000}"
+
+      # AWS (para tasks que precisem)
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION}"
+      AWS_REGION: "${AWS_REGION}"
+      S3_BUCKET: "${S3_BUCKET}"
+
     volumes:
-    - ./dags:/opt/airflow/dags
-    - ./logs:/opt/airflow/logs
-    - ./plugins:/opt/airflow/plugins
-    - ../secrets/aws:/home/airflow/.aws:ro
-    - ../secrets/kaggle/access_token:/home/airflow/.kaggle/access_token:ro
-    - ../secrets/kaggle/kaggle.json:/home/airflow/.kaggle/kaggle.json:ro
-    - ../.env:/opt/airflow/.env:ro
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+      - ../secrets/aws:/home/airflow/.aws:ro
+      - ../secrets/kaggle/access_token:/home/airflow/.kaggle/access_token:ro
+      - ../secrets/kaggle/kaggle.json:/home/airflow/.kaggle/kaggle.json:ro
+      - ../.env:/opt/airflow/.env:ro
+
+      - airflow-tmp:/tmp
+
+      # NECESSÁRIO se seu BashOperator usa "docker exec ..."
+      - /var/run/docker.sock:/var/run/docker.sock
 
     ports:
       - "${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
     command: webserver
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     restart: always
 
   airflow-scheduler:
@@ -46,19 +69,36 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: ../.env
+      airflow-init:
+        condition: service_completed_successfully
+    env_file: .env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW_UID: "${AIRFLOW_UID:-1000}"
+
+      # AWS
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION}"
+      AWS_REGION: "${AWS_REGION}"
+      S3_BUCKET: "${S3_BUCKET}"
+
     volumes:
-    - ./dags:/opt/airflow/dags
-    - ./logs:/opt/airflow/logs
-    - ./plugins:/opt/airflow/plugins
-    - ../secrets/aws:/home/airflow/.aws:ro
-    - ../secrets/kaggle/access_token:/home/airflow/.kaggle/access_token:ro
-    - ../secrets/kaggle/kaggle.json:/home/airflow/.kaggle/kaggle.json:ro
-    - ../.env:/opt/airflow/.env:ro
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+      - ../secrets/aws:/home/airflow/.aws:ro
+      - ../secrets/kaggle/access_token:/home/airflow/.kaggle/access_token:ro
+      - ../secrets/kaggle/kaggle.json:/home/airflow/.kaggle/kaggle.json:ro
+      - ../.env:/opt/airflow/.env:ro
+
+      - airflow-tmp:/tmp
+
+      # NECESSÁRIO se seu BashOperator usa "docker exec ..."
+      - /var/run/docker.sock:/var/run/docker.sock
 
     command: scheduler
     restart: always
@@ -69,15 +109,33 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: ../.env
+    env_file: .env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW_UID: "${AIRFLOW_UID:-1000}"
+
+      # AWS (não é obrigatório aqui, mas mantém consistente)
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION}"
+      AWS_REGION: "${AWS_REGION}"
+      S3_BUCKET: "${S3_BUCKET}"
+
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
+
+      - ../secrets/aws:/home/airflow/.aws:ro
+      - ../secrets/kaggle/access_token:/home/airflow/.kaggle/access_token:ro
+      - ../secrets/kaggle/kaggle.json:/home/airflow/.kaggle/kaggle.json:ro
+      - ../.env:/opt/airflow/.env:ro
+
+      - airflow-tmp:/tmp
+      - /var/run/docker.sock:/var/run/docker.sock
+
     entrypoint: /bin/bash
     command:
       - -c
@@ -89,8 +147,40 @@ services:
           --lastname User \
           --role Admin \
           --email admin@example.com \
-          --password admin
+          --password admin || true
     restart: "no"
+
+  spark-client:
+    image: apache/spark:3.5.1
+    container_name: dw-spark-client
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    # pega AWS_* e S3_BUCKET do .env
+    env_file: .env
+
+    environment:
+      - PATH=/opt/spark/bin:/opt/spark/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-de-olist-thiago-dev}
+      - INGESTION_DATE=${INGESTION_DATE:-2026-02-04}
+
+    volumes:
+      - ../:/work
+      - airflow-tmp:/tmp
+
+      # opcional: credenciais via profile (não obrigatório se usar env vars)
+      - ../secrets/aws:/root/.aws:ro
+      - ../spark_jars:/opt/spark/jars-extra:ro 
+
+    working_dir: /work
+    command: ["/bin/bash", "-lc", "sleep infinity"]
+    restart: always
 
 volumes:
   postgres-db-volume:
+  airflow-tmp:
