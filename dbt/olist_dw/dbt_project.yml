@@ -1,0 +1,24 @@
+name: "olist_dw"
+version: "1.0.0"
+config-version: 2
+
+profile: "olist_dw"
+
+model-paths: ["models"]
+
+models:
+  olist_dw:
+    +materialized: view
+    +schema: dw
+
+    staging:
+      +materialized: view
+
+    dimensions:
+      +materialized: table
+
+    facts:
+      +materialized: table
+
+    marts:
+      +materialized: view

@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: olist_stg
+    database: dev
+    schema: stg
+    tables:
+      - name: orders
+      - name: order_payments
+      - name: order_reviews
+      - name: order_items
+      - name: customers
+      - name: sellers
+      - name: products
+      - name: product_category_translation
