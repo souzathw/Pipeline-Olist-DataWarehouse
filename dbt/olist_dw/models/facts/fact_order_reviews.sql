@@ -2,7 +2,9 @@
   config(
     materialized='incremental',
     incremental_strategy='delete+insert',
-    unique_key='review_id'
+    unique_key='review_id',
+    dist='order_id',
+    sort=['ingestion_date', 'review_creation_ts']
   )
 }}
 
@@ -31,7 +33,6 @@ valid as (
     from dedup
     where rn = 1
 ),
-
 
 final as (
     select v.*

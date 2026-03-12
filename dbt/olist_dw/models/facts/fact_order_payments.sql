@@ -2,7 +2,9 @@
   config(
     materialized='incremental',
     incremental_strategy='delete+insert',
-    unique_key=['order_id', 'payment_sequential']
+    unique_key=['order_id','payment_sequential'],
+    dist='order_id',
+    sort=['ingestion_date']
   )
 }}
 

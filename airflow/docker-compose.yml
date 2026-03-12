@@ -50,6 +50,9 @@ services:
 
       - airflow-tmp:/tmp
 
+      # dbt project (montar dentro do Airflow) - OK manter, mas dbt vai rodar no dbt-runner
+      - /home/th/Desktop/dw_olist/dbt/olist_dw:/opt/airflow/dbt/olist_dw
+
       # NECESSÁRIO se seu BashOperator usa "docker exec ..."
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -97,6 +100,9 @@ services:
 
       - airflow-tmp:/tmp
 
+      # dbt project (montar dentro do Airflow) - OK manter, mas dbt vai rodar no dbt-runner
+      - /home/th/Desktop/dw_olist/dbt/olist_dw:/opt/airflow/dbt/olist_dw
+
       # NECESSÁRIO se seu BashOperator usa "docker exec ..."
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -134,6 +140,10 @@ services:
       - ../.env:/opt/airflow/.env:ro
 
       - airflow-tmp:/tmp
+
+      # dbt project (ok manter)
+      - /home/th/Desktop/dw_olist/dbt/olist_dw:/opt/airflow/dbt/olist_dw
+
       - /var/run/docker.sock:/var/run/docker.sock
 
     entrypoint: /bin/bash
@@ -157,7 +167,6 @@ services:
       postgres:
         condition: service_healthy
 
-    # pega AWS_* e S3_BUCKET do .env
     env_file: .env
 
     environment:
@@ -172,12 +181,31 @@ services:
     volumes:
       - ../:/work
       - airflow-tmp:/tmp
-
-      # opcional: credenciais via profile (não obrigatório se usar env vars)
       - ../secrets/aws:/root/.aws:ro
-      - ../spark_jars:/opt/spark/jars-extra:ro 
+      - ../spark_jars:/opt/spark/jars-extra:ro
 
     working_dir: /work
+    command: ["/bin/bash", "-lc", "sleep infinity"]
+    restart: always
+
+  # =========================
+  # DBT RUNNER (container separado)
+  # =========================
+  dbt-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.dbt
+    container_name: dw-dbt-runner
+    env_file: .env
+    environment:
+      DBT_PROFILES_DIR: /root/.dbt
+    volumes:
+      # projeto dbt (host -> container)
+      - /home/th/Desktop/dw_olist/dbt/olist_dw:/app/olist_dw
+
+      # profiles.yml do dbt (host -> container)
+      - /home/th/.dbt:/root/.dbt:ro
+    working_dir: /app/olist_dw
     command: ["/bin/bash", "-lc", "sleep infinity"]
     restart: always
 
